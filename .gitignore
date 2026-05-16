@@ -1,0 +1,16 @@
+# DevEco Studio 缓存/编译产物（体积巨大，不用提交）
+.idea/
+.deveco/
+.hvigor/
+.ohpm/
+build/
+*/build/
+*.log
+*.tmp
+
+# 依赖包（IDE会自动下载，不用提交）
+node_modules/
+
+# 系统文件
+.DS_Store
+Thumbs.db
