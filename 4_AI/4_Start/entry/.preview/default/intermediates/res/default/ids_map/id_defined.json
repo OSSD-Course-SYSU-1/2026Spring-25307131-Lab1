@@ -5,7 +5,7 @@
 			"id":	"0x01000000"
 		}, {
 			"type":	"media",
-			"name":	"foreground",
+			"name":	"layered_image",
 			"id":	"0x01000001"
 		}, {
 			"type":	"media",
@@ -13,15 +13,15 @@
 			"id":	"0x01000002"
 		}, {
 			"type":	"media",
-			"name":	"layered_image",
+			"name":	"foreground",
 			"id":	"0x01000003"
-		}, {
-			"type":	"profile",
-			"name":	"main_pages",
-			"id":	"0x01000004"
 		}, {
 			"type":	"color",
 			"name":	"start_window_background",
+			"id":	"0x01000004"
+		}, {
+			"type":	"float",
+			"name":	"page_text_font_size",
 			"id":	"0x01000005"
 		}, {
 			"type":	"string",
@@ -36,24 +36,28 @@
 			"name":	"module_desc",
 			"id":	"0x01000008"
 		}, {
-			"type":	"float",
-			"name":	"page_text_font_size",
+			"type":	"media",
+			"name":	"speaker_wave_3",
 			"id":	"0x01000009"
-		}, {
-			"type":	"profile",
-			"name":	"route_map",
-			"id":	"0x0100000A"
 		}, {
 			"type":	"media",
 			"name":	"startIcon",
-			"id":	"0x0100000B"
+			"id":	"0x0100000A"
 		}, {
 			"type":	"profile",
 			"name":	"backup_config",
-			"id":	"0x0100000C"
+			"id":	"0x0100000B"
 		}, {
 			"type":	"media",
 			"name":	"chevron_left",
+			"id":	"0x0100000C"
+		}, {
+			"type":	"profile",
+			"name":	"route_map",
 			"id":	"0x0100000D"
+		}, {
+			"type":	"profile",
+			"name":	"main_pages",
+			"id":	"0x0100000E"
 		}]
 }

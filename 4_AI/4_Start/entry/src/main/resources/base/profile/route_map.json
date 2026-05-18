@@ -4,6 +4,16 @@
       "name": "Led",
       "pageSourceFile": "src/main/ets/pages/Led.ets",
       "buildFunction": "LedBuilder"
+    },
+    {
+      "name": "History",
+      "pageSourceFile": "src/main/ets/pages/HistoryPage.ets",
+      "buildFunction": "HistoryBuilder"
+    },
+    {
+      "name": "Stats",
+      "pageSourceFile": "src/main/ets/pages/StatsPage.ets",
+      "buildFunction": "StatsBuilder"
     }
   ]
 }

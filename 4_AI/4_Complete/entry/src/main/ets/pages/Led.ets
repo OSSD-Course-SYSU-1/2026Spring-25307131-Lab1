@@ -14,7 +14,7 @@
  */
 
 import { window } from '@kit.ArkUI';
-import { Settings } from '../model/Settings';
+import { Settings, DisplayArea } from '../model/Settings';
 import { Speaker } from '../utils/Speaker';
 
 @ComponentV2
@@ -27,48 +27,57 @@ export struct Led {
     this.speaker.shutdownEngine();
   }
 
+  private getContentAlign(): FlexAlign {
+    if (this.settings.displayArea === DisplayArea.TOP) {
+      return FlexAlign.Start;
+    } else if (this.settings.displayArea === DisplayArea.BOTTOM) {
+      return FlexAlign.End;
+    }
+    return FlexAlign.Center;
+  }
+
   build() {
-    NavDestination() { // 使用NavDestination作为目标页面的根容器
-      Column() { // 垂直容器：让文字居中显示
+    NavDestination() {
+      Column() {
         Text(this.settings.content)
-          .textOverflow({ overflow: TextOverflow.MARQUEE }) // 文字超出显示框时，跑马灯的方式展示（即滚动的方式展示）
+          .textOverflow({ overflow: TextOverflow.MARQUEE })
           .marqueeOptions({
-            start: true // 开启滚动功能
+            start: true,
+            step: this.settings.speed
           })
-          .fontSize(this.settings.fontSize) // 绑定字号变量
+          .fontSize(this.settings.fontSize)
           .fontWeight(this.settings.fontWeight)
-          .fontColor('#FFFFFF')
+          .fontColor(this.settings.fontColor)
       }
       .width('100%')
       .height('100%')
-      .justifyContent(FlexAlign.Center)
+      .justifyContent(this.getContentAlign())
     }
     .onReady((context: NavDestinationContext) => {
       this.settings = context.pathInfo.param as Settings;
-    }) // NavDestination内组件开始加载前执行，可以得到组件上下文信息，并获取到页面跳转时携带的参数
+    })
     .width('100%')
     .height('100%')
     .menus([{
-      value: '', // 必填项
-      icon: $r('app.media.speaker_wave_3'), // 图标
+      value: '',
+      icon: $r('app.media.speaker_wave_3'),
       action: () => {
         this.speaker.startSpeak(this.settings.content);
-      } // 选项被选中后触发
+      }
     }])
     .backButtonIcon($r('app.media.chevron_left'))
-    .preferredOrientation(window.Orientation.LANDSCAPE) // 强制横屏（弹幕更适合横屏展示）
-    .linearGradient({ // 设置背景线性渐变
-      direction: GradientDirection.Right, // 渐变方向
+    .preferredOrientation(window.Orientation.LANDSCAPE)
+    .linearGradient({
+      direction: GradientDirection.Right,
       colors: [
-        ['#013C9C', 0.0],
-        ['#3066E4', 0.5],
-        ['#43A1F4', 1.0]
+        [this.settings.bgColor[0], 0.0],
+        [this.settings.bgColor[1], 0.5],
+        [this.settings.bgColor[2], 1.0]
       ]
     })
   }
 }
 
-// 构建页面函数，配置在route_map.json5文件中，需要跳转至本页面时自动调用
 @Builder
 export function LedBuilder() {
   Led();

@@ -13,20 +13,49 @@
  * limitations under the License.
  */
 
-// 定义一个类，包含所有需要传递的设置项
-export class Settings {
-  content: string = ''; // 弹幕内容
-  fontSize: number = 0; // 字体大小
-  fontWeight: FontWeight = FontWeight.Regular; // 字体粗细
+export enum DisplayArea {
+  TOP = 'top',
+  CENTER = 'center',
+  BOTTOM = 'bottom'
+}
 
-  // 构造函数：初始化所有参数
+export class Settings {
+  content: string = '';
+  fontSize: number = 0;
+  fontWeight: FontWeight = FontWeight.Regular;
+  fontColor: string = '#FFFFFF';
+  speed: number = 6;
+  displayArea: DisplayArea = DisplayArea.CENTER;
+  bgColor: string[] = ['#013C9C', '#3066E4', '#43A1F4'];
+  themeName: string = '默认蓝';
+
   constructor(
     content: string,
     fontSize: number,
     fontWeight: FontWeight,
+    fontColor?: string,
+    speed?: number,
+    displayArea?: DisplayArea,
+    bgColor?: string[],
+    themeName?: string
   ) {
     this.content = content;
     this.fontSize = fontSize;
     this.fontWeight = fontWeight;
+    if (fontColor !== undefined) {
+      this.fontColor = fontColor;
+    }
+    if (speed !== undefined) {
+      this.speed = speed;
+    }
+    if (displayArea !== undefined) {
+      this.displayArea = displayArea;
+    }
+    if (bgColor !== undefined) {
+      this.bgColor = bgColor;
+    }
+    if (themeName !== undefined) {
+      this.themeName = themeName;
+    }
   }
 }

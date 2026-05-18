@@ -3,10 +3,12 @@ if (!("finalizeConstruction" in ViewPU.prototype)) {
 }
 import window from "@ohos:window";
 import { Settings } from "@normalized:N&&&entry/src/main/ets/model/Settings&";
+import { Speaker } from "@normalized:N&&&entry/src/main/ets/utils/Speaker&";
 export class Led extends ViewV2 {
     constructor(parent, params, __localStorage, elmtId = -1, paramsLambda, extraInfo) {
         super(parent, elmtId, extraInfo);
         this.settings = new Settings('', 88, FontWeight.Regular);
+        this.speaker = new Speaker();
         this.finalizeConstruction();
     }
     public resetStateVarsOnReuse(params: Object): void {
@@ -14,19 +16,24 @@ export class Led extends ViewV2 {
     }
     @Local
     settings: Settings;
+    speaker: Speaker;
+    aboutToDisappear(): void {
+        this.speaker.stopSpeak();
+        this.speaker.shutdownEngine();
+    }
     initialRender() {
         this.observeComponentCreation2((elmtId, isInitialRender) => {
             NavDestination.create(() => {
                 this.observeComponentCreation2((elmtId, isInitialRender) => {
                     Column.create();
-                    Column.debugLine("entry/src/main/ets/pages/Led.ets(25:7)", "entry");
+                    Column.debugLine("entry/src/main/ets/pages/Led.ets(32:7)", "entry");
                     Column.width('100%');
                     Column.height('100%');
                     Column.justifyContent(FlexAlign.Center);
                 }, Column);
                 this.observeComponentCreation2((elmtId, isInitialRender) => {
                     Text.create(this.settings.content);
-                    Text.debugLine("entry/src/main/ets/pages/Led.ets(26:9)", "entry");
+                    Text.debugLine("entry/src/main/ets/pages/Led.ets(33:9)", "entry");
                     Text.textOverflow({ overflow: TextOverflow.MARQUEE });
                     Text.marqueeOptions({
                         start: true // 开启滚动功能
@@ -43,7 +50,14 @@ export class Led extends ViewV2 {
             });
             NavDestination.width('100%');
             NavDestination.height('100%');
-            NavDestination.backButtonIcon({ "id": 16777229, "type": 20000, params: [], "bundleName": "com.example.led", "moduleName": "entry" });
+            NavDestination.menus([{
+                    value: '',
+                    icon: { "id": 16777225, "type": 20000, params: [], "bundleName": "com.example.led", "moduleName": "entry" },
+                    action: () => {
+                        this.speaker.startSpeak(this.settings.content);
+                    } // 选项被选中后触发
+                }]);
+            NavDestination.backButtonIcon({ "id": 16777228, "type": 20000, params: [], "bundleName": "com.example.led", "moduleName": "entry" });
             NavDestination.preferredOrientation(window.Orientation.LANDSCAPE);
             NavDestination.linearGradient({
                 direction: GradientDirection.Right,
@@ -53,7 +67,7 @@ export class Led extends ViewV2 {
                     ['#43A1F4', 1.0]
                 ]
             });
-            NavDestination.debugLine("entry/src/main/ets/pages/Led.ets(24:5)", "entry");
+            NavDestination.debugLine("entry/src/main/ets/pages/Led.ets(31:5)", "entry");
         }, NavDestination);
         NavDestination.pop();
     }
@@ -66,7 +80,7 @@ export function LedBuilder(parent = null) {
     {
         (parent ? parent : this).observeComponentCreation2((elmtId, isInitialRender) => {
             if (isInitialRender) {
-                let componentCall = new Led(parent ? parent : this, {}, undefined, elmtId, () => { }, { page: "entry/src/main/ets/pages/Led.ets", line: 60, col: 3 });
+                let componentCall = new Led(parent ? parent : this, {}, undefined, elmtId, () => { }, { page: "entry/src/main/ets/pages/Led.ets", line: 74, col: 3 });
                 ViewV2.create(componentCall);
                 let paramsLambda = () => {
                     return {};

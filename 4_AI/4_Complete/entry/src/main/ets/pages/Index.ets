@@ -13,244 +13,535 @@
  * limitations under the License.
  */
 
-import { Settings } from '../model/Settings';
+import { Settings, DisplayArea } from '../model/Settings';
+import { ThemeManager, ThemeConfig } from '../utils/ThemeManager';
+import { PresetTemplates, PresetTemplate } from '../utils/PresetTemplates';
+import { KeywordFilter } from '../utils/KeywordFilter';
+import { HistoryManager, HistoryItem } from '../utils/HistoryManager';
+import { StatsManager } from '../utils/StatsManager';
+import { Context } from '@kit.AbilityKit';
 
 @Entry
 @ComponentV2
 struct Index {
-  // 1. 弹幕内容（字符串类型，默认文字）
   @Local content: string = '欢迎学习鸿蒙开发';
-  // 2. 字号（数字类型，默认88）
   @Local fontSize: number = 88;
-  // 字号标识（小/中/大，同步显示给用户）
   @Local fontSizeFlag: string = '小';
-  // 3. 字体粗细（枚举类型，默认常规）
   @Local fontWeight: FontWeight = FontWeight.Regular;
-  // 字体粗细选中项
   @Local selectedIndex: number = 0;
-  // 字体粗细数组（常规、中等、加粗）
   fontWeights: FontWeight[] = [FontWeight.Regular, FontWeight.Medium, FontWeight.Bold];
-  // 导航控制器
+
+  @Local fontColor: string = '#FFFFFF';
+  @Local speed: number = 6;
+  @Local speedFlag: string = '中';
+  @Local displayArea: DisplayArea = DisplayArea.CENTER;
+  @Local displayAreaIndex: number = 1;
+  @Local themeName: string = '默认蓝';
+  @Local themeIndex: number = 0;
+
+  @Local filterKeyword: string = '';
+  @Local filteredContent: string = '';
+
+  @Local showPresetPanel: boolean = false;
+  @Local showKeywordPanel: boolean = false;
+  @Local keywordList: string[] = [];
+
+  @Local showColorPicker: boolean = false;
+
   pathInfos: NavPathStack = new NavPathStack();
 
-  build() {
-    Navigation(this.pathInfos) { // 使用Navigation作为首页的根容器，并绑定导航控制器
-      Column() {
-        // 1. 标题区
-        Text('手持弹幕')
-          .fontSize(26) // 字体大小
-          .fontColor('#000000') // 字体颜色
-          .fontWeight(FontWeight.Bold)
-          .margin({ left: 16 }) // 左外边距16(离屏幕边缘有距离)
-          .height(56) // 组件高度
-        // 2. 预览区
-        Column() {
-          Text('预览') // Text组件：文本组件，可以展示单行文本
-            .fontSize(14) // 字体大小14
-            .fontColor('#99000000') // 字体颜色
-            .fontWeight(FontWeight.Medium)
-            .margin({ left: 28 }) // 左外边距28（离屏幕边缘有距离）
+  keywordFilter: KeywordFilter = new KeywordFilter();
+  historyManager: HistoryManager = new HistoryManager();
+  statsManager: StatsManager = new StatsManager();
+  @Local isManagersReady: boolean = false;
 
-          // 弹幕展示框
+  aboutToAppear(): void {
+    const context = getContext(this) as Context;
+    this.initManagers(context);
+  }
+
+  private async initManagers(context: Context): Promise<void> {
+    await Promise.all([
+      this.keywordFilter.init(context),
+      this.historyManager.init(context),
+      this.statsManager.init(context)
+    ]);
+    this.keywordList = await this.keywordFilter.getKeywords();
+    this.isManagersReady = true;
+  }
+
+  private getThemeBgColors(): string[] {
+    return ThemeManager.getThemeByName(this.themeName).bgColors;
+  }
+
+  private getPreviewAlign(): FlexAlign {
+    if (this.displayArea === DisplayArea.TOP) {
+      return FlexAlign.Start;
+    } else if (this.displayArea === DisplayArea.BOTTOM) {
+      return FlexAlign.End;
+    }
+    return FlexAlign.Center;
+  }
+
+  private handleDisplayAreaChange(index: number): void {
+    this.displayAreaIndex = index;
+    const areas = [DisplayArea.TOP, DisplayArea.CENTER, DisplayArea.BOTTOM];
+    this.displayArea = areas[index];
+  }
+
+  private handleThemeChange(index: number): void {
+    this.themeIndex = index;
+    const names = ThemeManager.getAllThemeNames();
+    this.themeName = names[index];
+    const theme = ThemeManager.getThemeByName(this.themeName);
+    this.fontColor = theme.defaultFontColor;
+  }
+
+  private handleSpeedChange(value: number): void {
+    this.speed = value;
+    if (this.speed <= 3) {
+      this.speedFlag = '慢';
+    } else if (this.speed >= 9) {
+      this.speedFlag = '快';
+    } else {
+      this.speedFlag = '中';
+    }
+  }
+
+  private applyPreset(template: PresetTemplate): void {
+    this.content = template.content;
+    this.showPresetPanel = false;
+  }
+
+  private async addKeyword(): Promise<void> {
+    if (this.filterKeyword.trim().length === 0) {
+      return;
+    }
+    await this.keywordFilter.addKeyword(this.filterKeyword.trim());
+    this.keywordList = await this.keywordFilter.getKeywords();
+    this.filterKeyword = '';
+  }
+
+  private async removeKeyword(keyword: string): Promise<void> {
+    await this.keywordFilter.removeKeyword(keyword);
+    this.keywordList = await this.keywordFilter.getKeywords();
+  }
+
+  private async onSendDanmu(): Promise<void> {
+    let finalContent = this.content;
+    if (this.keywordList.length > 0) {
+      finalContent = this.keywordFilter.filterContent(this.content);
+    }
+
+    const settings = new Settings(
+      finalContent,
+      this.fontSize,
+      this.fontWeight,
+      this.fontColor,
+      this.speed,
+      this.displayArea,
+      this.getThemeBgColors(),
+      this.themeName
+    );
+
+    if (this.isManagersReady) {
+      const historyItem: HistoryItem = {
+        content: this.content,
+        timestamp: Date.now(),
+        fontColor: this.fontColor
+      };
+      await this.historyManager.addHistory(historyItem);
+      await this.statsManager.recordSend();
+    }
+
+    this.pathInfos.pushPathByName('Led', settings);
+  }
+
+  @Builder
+  buildSectionHeader(title: string) {
+    Text(title)
+      .fontSize(14)
+      .fontColor('#99000000')
+      .fontWeight(FontWeight.Medium)
+      .margin({ left: 12, bottom: 8 })
+  }
+
+  build() {
+    Navigation(this.pathInfos) {
+      Column() {
+        Text('手持弹幕')
+          .fontSize(26)
+          .fontColor('#000000')
+          .fontWeight(FontWeight.Bold)
+          .margin({ left: 16 })
+          .height(56)
+
+        Column() {
+          Text('预览')
+            .fontSize(14)
+            .fontColor('#99000000')
+            .fontWeight(FontWeight.Medium)
+            .margin({ left: 28 })
+
           Column() {
-            // 弹幕滚动区域
             Row() {
               Text(this.content)
-              // 第1步：开启跑马灯滚动模式
-                .textOverflow({ overflow: TextOverflow.MARQUEE }) // TextOverflow.MARQUEE表示Text组件的文字溢出以跑马灯模式处理
-                // 第2步：配置滚动的规则
-                .marqueeOptions({
-                  start: true // 关键：是否启动滚动。true：启动滚动；false：停止滚动
-                })
-                .fontSize(this.fontSize / 1.8) // 绑定字号变量
-                .fontWeight(this.fontWeight) // 字体粗细
-                .fontColor('#FFFFFF')
+                .textOverflow({ overflow: TextOverflow.MARQUEE })
+                .marqueeOptions({ start: true, step: this.speed })
+                .fontSize(this.fontSize / 1.8)
+                .fontWeight(this.fontWeight)
+                .fontColor(this.fontColor)
             }
             .width('100%')
             .height('100%')
             .linearGradient({
-              direction: GradientDirection.Right, // 渐变方向
+              direction: GradientDirection.Right,
               colors: [
-                ['#013C9C', 0.0],
-                ['#3066E4', 0.5],
-                ['#43A1F4', 1.0]
+                [this.getThemeBgColors()[0], 0.0],
+                [this.getThemeBgColors()[1], 0.5],
+                [this.getThemeBgColors()[2], 1.0]
               ]
             })
-            .borderRadius(16) // 边框的圆角半径
-            .justifyContent(FlexAlign.Center) // 设置文本居中
+            .borderRadius(16)
+            .justifyContent(this.getPreviewAlign())
           }
           .width('100%')
-          .height(199) // 展示框高度
-          .backgroundColor('#E5E5EA') // 展示框背景色
-          .padding({
-            top: 24,
-            right: 16,
-            bottom: 24,
-            left: 16
-          }) // 内边距
-          .margin({ top: 8 }) // 外边距（距离“预览”标题的间距）
-          .alignItems(HorizontalAlign.Start) // 设置Column容器内容左对齐
+          .height(199)
+          .backgroundColor('#E5E5EA')
+          .padding({ top: 24, right: 16, bottom: 24, left: 16 })
+          .margin({ top: 8 })
+          .alignItems(HorizontalAlign.Start)
         }
         .width('100%')
         .margin({ top: 28 })
-        .alignItems(HorizontalAlign.Start) // 设置Column容器的内容左对齐
+        .alignItems(HorizontalAlign.Start)
 
-        // 3. 操作区
-        Column() {
-          // 弹幕内容区
+        Scroll() {
           Column() {
-            Text('弹幕内容')
-              .fontSize(14)
-              .fontColor('#99000000')
-              .fontWeight(FontWeight.Medium)
-              .margin({ left: 12 })
+            Column() {
+              Text('弹幕内容')
+                .fontSize(14)
+                .fontColor('#99000000')
+                .fontWeight(FontWeight.Medium)
+                .margin({ left: 12 })
 
-            // 输入框
-            TextArea({ text: this.content }) // 初始默认文字
-              .backgroundColor(Color.White) // 白色背景色
-              .maxLength(50) // 限制输入文本的个数，最多输入50个字
-              .showCounter(
-                true, // 开启统计
-                {
-                  thresholdPercentage: 1, // 全程显示统计（不用等字数快满才出现）
-                  highlightBorder: true // 输入快满时，边框会高亮提醒
+              TextArea({ text: this.content })
+                .backgroundColor(Color.White)
+                .maxLength(50)
+                .showCounter(true, { thresholdPercentage: 1, highlightBorder: true })
+                .height(72)
+                .padding({ top: 8, right: 16, bottom: 8, left: 16 })
+                .margin({ top: 8 })
+                .borderRadius(16)
+                .onChange((value: string) => {
+                  this.content = value;
+                })
+            }
+            .width('100%')
+            .alignItems(HorizontalAlign.Start)
+            .margin({ top: 28, bottom: 12 })
+
+            Row() {
+              Button('预设模板')
+                .fontSize(13)
+                .height(32)
+                .backgroundColor('#E8E8E8')
+                .fontColor('#333333')
+                .onClick(() => { this.showPresetPanel = !this.showPresetPanel; })
+              Button('关键词过滤')
+                .fontSize(13)
+                .height(32)
+                .backgroundColor('#E8E8E8')
+                .fontColor('#333333')
+                .onClick(() => { this.showKeywordPanel = !this.showKeywordPanel; })
+              Button('历史记录')
+                .fontSize(13)
+                .height(32)
+                .backgroundColor('#E8E8E8')
+                .fontColor('#333333')
+                .onClick(() => { this.pathInfos.pushPathByName('History', null); })
+              Button('统计面板')
+                .fontSize(13)
+                .height(32)
+                .backgroundColor('#E8E8E8')
+                .fontColor('#333333')
+                .onClick(() => { this.pathInfos.pushPathByName('Stats', null); })
+            }
+            .width('100%')
+            .justifyContent(FlexAlign.SpaceEvenly)
+            .margin({ top: 8, bottom: 12 })
+
+            if (this.showPresetPanel) {
+              Column() {
+                Text('预设模板库')
+                  .fontSize(14)
+                  .fontColor('#99000000')
+                  .fontWeight(FontWeight.Medium)
+                  .margin({ left: 12, top: 8 })
+
+                Flex({ wrap: FlexWrap.Wrap }) {
+                  ForEach(PresetTemplates.getAll(), (template: PresetTemplate) => {
+                    Button(template.label)
+                      .fontSize(14)
+                      .height(32)
+                      .margin(4)
+                      .backgroundColor('#F1F3F5')
+                      .fontColor('#333333')
+                      .onClick(() => { this.applyPreset(template); })
+                  }, (template: PresetTemplate) => template.label)
                 }
-              )
-              .height(72) // 输入框高度
-              .padding({
-                top: 8,
-                right: 16,
-                bottom: 8,
-                left: 16
-              }) // 输入框内部的文字，距离输入框边缘的距离
-              .margin({ top: 8 }) // 输入框距离上方标题的间距
-              .borderRadius(16) // 边框的圆角半径
-              .onChange((value: string) => { // 用户修改输入框文本时触发，返回当前值
-                this.content = value; // 将当前值赋值给content
-              })
-          }
-          .width('100%')
-          .alignItems(HorizontalAlign.Start)
-          .margin({
-            top: 28,
-            bottom: 28
-          })
+                .width('100%')
+                .padding({ left: 12, right: 12, top: 8, bottom: 12 })
+              }
+              .width('100%')
+              .backgroundColor(Color.White)
+              .borderRadius(16)
+              .margin({ bottom: 12 })
+            }
 
-          // 设置区
-          Column() {
-            // 标题
-            Text('显示设置')
-              .fontSize(14)
-              .fontColor('#99000000')
-              .fontWeight(FontWeight.Medium)
-              .margin({
-                bottom: 8,
-                left: 12
-              })
+            if (this.showKeywordPanel) {
+              Column() {
+                Text('关键词过滤')
+                  .fontSize(14)
+                  .fontColor('#99000000')
+                  .fontWeight(FontWeight.Medium)
+                  .margin({ left: 12, top: 8, bottom: 8 })
+
+                Row() {
+                  TextInput({ text: this.filterKeyword, placeholder: '输入过滤关键词' })
+                    .layoutWeight(1)
+                    .height(36)
+                    .borderRadius(8)
+                    .onChange((value: string) => { this.filterKeyword = value; })
+                  Button('添加')
+                    .fontSize(13)
+                    .height(36)
+                    .margin({ left: 8 })
+                    .onClick(() => { this.addKeyword(); })
+                }
+                .width('100%')
+                .padding({ left: 12, right: 12 })
+                .margin({ bottom: 8 })
+
+                if (this.keywordList.length > 0) {
+                  Flex({ wrap: FlexWrap.Wrap }) {
+                    ForEach(this.keywordList, (keyword: string) => {
+                      Row() {
+                        Text(keyword)
+                          .fontSize(13)
+                          .fontColor('#333333')
+                          .margin({ right: 4 })
+                        Text('×')
+                          .fontSize(13)
+                          .fontColor('#999999')
+                          .onClick(() => { this.removeKeyword(keyword); })
+                      }
+                      .padding({ left: 8, right: 8, top: 4, bottom: 4 })
+                      .margin(4)
+                      .backgroundColor('#F1F3F5')
+                      .borderRadius(12)
+                    }, (keyword: string) => keyword)
+                  }
+                  .width('100%')
+                  .padding({ left: 12, right: 12, bottom: 12 })
+                }
+              }
+              .width('100%')
+              .backgroundColor(Color.White)
+              .borderRadius(16)
+              .margin({ bottom: 12 })
+            }
 
             Column() {
-              // 字号大小区
+              this.buildSectionHeader('显示设置');
+
               Column() {
+                Column() {
+                  Row() {
+                    Text('字体大小')
+                      .fontSize(16)
+                      .fontWeight(FontWeight.Medium)
+                    Text(this.fontSizeFlag)
+                      .fontSize(14)
+                  }
+                  .width('100%')
+                  .height(48)
+                  .justifyContent(FlexAlign.SpaceBetween)
+
+                  Slider({
+                    value: this.fontSize,
+                    min: 88,
+                    max: 248,
+                    step: 80,
+                    style: SliderStyle.InSet
+                  })
+                    .width('calc(100% + 12vp)')
+                    .height(40)
+                    .blockColor(Color.White)
+                    .trackColor('#F1F3F5')
+                    .selectedColor('#0A59F7')
+                    .showSteps(true)
+                    .onChange((value: number) => {
+                      this.fontSize = value;
+                      if (this.fontSize === 88) {
+                        this.fontSizeFlag = '小';
+                      } else if (this.fontSize === 248) {
+                        this.fontSizeFlag = '大';
+                      } else {
+                        this.fontSizeFlag = '中';
+                      }
+                    })
+                }
+
                 Row() {
-                  Text('字体大小')
+                  Text('字体粗细')
                     .fontSize(16)
                     .fontWeight(FontWeight.Medium)
-                  Text(this.fontSizeFlag)
+                  Select([
+                    { value: this.fontWeights[0].toString() },
+                    { value: this.fontWeights[1].toString() },
+                    { value: this.fontWeights[2].toString() }
+                  ])
+                    .value(this.fontWeight.toString())
+                    .selected(this.selectedIndex)
+                    .backgroundColor('#FFFFFF')
+                    .fontColor('#99000000')
+                    .borderWidth(0)
+                    .onSelect((index: number) => {
+                      this.fontWeight = this.fontWeights[index];
+                      this.selectedIndex = index;
+                    })
+                }
+                .width('100%')
+                .height(48)
+                .margin({ top: 12 })
+                .justifyContent(FlexAlign.SpaceBetween)
+
+                Row() {
+                  Text('弹幕速度')
+                    .fontSize(16)
+                    .fontWeight(FontWeight.Medium)
+                  Text(this.speedFlag)
                     .fontSize(14)
                 }
                 .width('100%')
                 .height(48)
+                .margin({ top: 12 })
                 .justifyContent(FlexAlign.SpaceBetween)
 
                 Slider({
-                  value: this.fontSize,
-                  min: 88,
-                  max: 248,
-                  step: 80,
+                  value: this.speed,
+                  min: 1,
+                  max: 12,
+                  step: 1,
                   style: SliderStyle.InSet
                 })
                   .width('calc(100% + 12vp)')
                   .height(40)
-                  .blockColor(Color.White) // 滑块背景色
-                  .trackColor('#F1F3F5') // 滑轨背景色
-                  .selectedColor('#0A59F7') // 滑轨的已滑动部分背景色
-                  .showSteps(true) // 显示步长刻度
-                  .onChange((value: number) => { // 用户拖动或点击时触发，返回当前滑动的进度值
-                    this.fontSize = value;
-                    // 根据当前fontSize匹配fontSizeFlag
-                    if (this.fontSize === 88) {
-                      this.fontSizeFlag = '小';
-                    } else if (this.fontSize === 248) {
-                      this.fontSizeFlag = '大';
-                    } else {
-                      this.fontSizeFlag = '中';
-                    }
+                  .blockColor(Color.White)
+                  .trackColor('#F1F3F5')
+                  .selectedColor('#0A59F7')
+                  .onChange((value: number) => {
+                    this.handleSpeedChange(value);
                   })
-              }
 
-              // 字体粗细区
-              Row() {
-                Text('字体粗细')
-                  .fontSize(16)
-                  .fontWeight(FontWeight.Medium)
-                Select([
-                  { value: this.fontWeights[0].toString() },
-                  { value: this.fontWeights[1].toString() },
-                  { value: this.fontWeights[2].toString() }
-                ])
-                  .value(this.fontWeight.toString())
-                  .selected(this.selectedIndex)
-                  .backgroundColor('#FFFFFF')
-                  .fontColor('#99000000')
-                  .borderWidth(0)
-                  .onSelect((index: number) => { // 选中下拉菜单中某一项时触发，返回选中项的索引
-                    this.fontWeight = this.fontWeights[index]; // 将选中项赋值给fontWeight
-                    this.selectedIndex = index; // 将选中项的索引赋值给selectedIndex
-                  })
+                Row() {
+                  Text('弹幕颜色')
+                    .fontSize(16)
+                    .fontWeight(FontWeight.Medium)
+                  Row() {
+                    Circle()
+                      .width(24)
+                      .height(24)
+                      .fill(this.fontColor)
+                      .border({ width: 1, color: '#CCCCCC' })
+                    TextInput({ text: this.fontColor })
+                      .width(100)
+                      .height(32)
+                      .fontSize(12)
+                      .margin({ left: 8 })
+                      .borderRadius(8)
+                      .onChange((value: string) => {
+                        if (value.startsWith('#') && value.length === 7) {
+                          this.fontColor = value;
+                        }
+                      })
+                  }
+                }
+                .width('100%')
+                .height(48)
+                .margin({ top: 12 })
+                .justifyContent(FlexAlign.SpaceBetween)
+
+                Row() {
+                  Text('显示区域')
+                    .fontSize(16)
+                    .fontWeight(FontWeight.Medium)
+                  Select([
+                    { value: '上方' },
+                    { value: '居中' },
+                    { value: '下方' }
+                  ])
+                    .value(this.displayAreaIndex === 0 ? '上方' : this.displayAreaIndex === 1 ? '居中' : '下方')
+                    .selected(this.displayAreaIndex)
+                    .backgroundColor('#FFFFFF')
+                    .fontColor('#99000000')
+                    .borderWidth(0)
+                    .onSelect((index: number) => {
+                      this.handleDisplayAreaChange(index);
+                    })
+                }
+                .width('100%')
+                .height(48)
+                .margin({ top: 12 })
+                .justifyContent(FlexAlign.SpaceBetween)
+
+                Row() {
+                  Text('弹幕主题')
+                    .fontSize(16)
+                    .fontWeight(FontWeight.Medium)
+                  Select(ThemeManager.getAllThemeNames().map((name: string): SelectOption => { return { value: name }; }))
+                    .value(this.themeName)
+                    .selected(this.themeIndex)
+                    .backgroundColor('#FFFFFF')
+                    .fontColor('#99000000')
+                    .borderWidth(0)
+                    .onSelect((index: number) => {
+                      this.handleThemeChange(index);
+                    })
+                }
+                .width('100%')
+                .height(48)
+                .margin({ top: 12 })
+                .justifyContent(FlexAlign.SpaceBetween)
               }
               .width('100%')
-              .height(48)
-              .margin({ top: 12 })
-              .justifyContent(FlexAlign.SpaceBetween)
-
+              .padding({ left: 12, right: 12, top: 4, bottom: 4 })
+              .margin({ bottom: 12 })
+              .backgroundColor(Color.White)
+              .borderRadius(16)
             }
             .width('100%')
-            .padding({
-              left: 12,
-              right: 12,
-              top: 4,
-              bottom: 4
-            })
-            .margin({ bottom: 12 })
-            .backgroundColor(Color.White)
-            .borderRadius(16)
-          }
-          .width('100%')
-          .alignItems(HorizontalAlign.Start) // 设置Column容器的内容左对齐
+            .alignItems(HorizontalAlign.Start)
 
-          Button('显示弹幕')
-            .height(40)
-            .backgroundColor('#0A59F7')
-            .margin({ top: 32 })
-            .width('100%')
-            .onClick(() => {
-              // 1. 把当前页面的设置项组装成Settings对象
-              const settings = new Settings(this.content, this.fontSize, this.fontWeight);
-              // 2. 跳转：第一个参数是路由表的name，第二个是传递的参数
-              this.pathInfos.pushPathByName('Led', settings);
-            })
+            Button('显示弹幕')
+              .height(40)
+              .backgroundColor('#0A59F7')
+              .margin({ top: 32, bottom: 32 })
+              .width('100%')
+              .onClick(() => { this.onSendDanmu(); })
+          }
+          .padding({ left: 16, right: 16 })
         }
-        .padding({
-          left: 16,
-          right: 16
-        })
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
       }
-      .width('100%') // 设置Column容器宽度为100%，横向占满屏幕
-      .height('100%') // 设置Column容器高度为100%，纵向占满屏幕
-      .background('#F1F3F5') //设置Column容器的背景色
+      .width('100%')
+      .height('100%')
+      .background('#F1F3F5')
       .alignItems(HorizontalAlign.Start)
     }
-    .mode(NavigationMode.Stack) // 设置单栏模式
-    .hideToolBar(true) // 隐藏工具栏
+    .mode(NavigationMode.Stack)
+    .hideToolBar(true)
   }
 }
