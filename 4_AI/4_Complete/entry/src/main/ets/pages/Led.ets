@@ -14,7 +14,7 @@
  */
 
 import { window } from '@kit.ArkUI';
-import { Settings, DisplayArea } from '../model/Settings';
+import { Settings, DisplayArea, DisplayMode } from '../model/Settings';
 import { Speaker } from '../utils/Speaker';
 
 @ComponentV2
@@ -39,15 +39,23 @@ export struct Led {
   build() {
     NavDestination() {
       Column() {
-        Text(this.settings.content)
-          .textOverflow({ overflow: TextOverflow.MARQUEE })
-          .marqueeOptions({
-            start: true,
-            step: this.settings.speed
-          })
-          .fontSize(this.settings.fontSize)
-          .fontWeight(this.settings.fontWeight)
-          .fontColor(this.settings.fontColor)
+        if (this.settings.displayMode === DisplayMode.SLIDE) {
+          Text(this.settings.content)
+            .textOverflow({ overflow: TextOverflow.MARQUEE })
+            .marqueeOptions({
+              start: true,
+              step: this.settings.speed
+            })
+            .fontSize(this.settings.fontSize)
+            .fontWeight(this.settings.fontWeight)
+            .fontColor(this.settings.fontColor)
+        } else {
+          Text(this.settings.content)
+            .fontSize(this.settings.fontSize)
+            .fontWeight(this.settings.fontWeight)
+            .fontColor(this.settings.fontColor)
+            .textAlign(TextAlign.Center)
+        }
       }
       .width('100%')
       .height('100%')

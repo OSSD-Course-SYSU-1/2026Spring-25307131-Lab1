@@ -13,13 +13,15 @@
  * limitations under the License.
  */
 
-import { Settings, DisplayArea } from '../model/Settings';
+import { Settings, SettingsRecord, DisplayArea, DisplayMode } from '../model/Settings';
 import { ThemeManager, ThemeConfig } from '../utils/ThemeManager';
 import { PresetTemplates, PresetTemplate } from '../utils/PresetTemplates';
 import { KeywordFilter } from '../utils/KeywordFilter';
 import { HistoryManager, HistoryItem } from '../utils/HistoryManager';
 import { StatsManager } from '../utils/StatsManager';
 import { Context } from '@kit.AbilityKit';
+
+const CONTINUE_KEY = 'continueSettings';
 
 @Entry
 @ComponentV2
@@ -36,6 +38,8 @@ struct Index {
   @Local speedFlag: string = '中';
   @Local displayArea: DisplayArea = DisplayArea.CENTER;
   @Local displayAreaIndex: number = 1;
+  @Local displayMode: DisplayMode = DisplayMode.SLIDE;
+  @Local displayModeIndex: number = 0;
   @Local themeName: string = '默认蓝';
   @Local themeIndex: number = 0;
 
@@ -58,6 +62,23 @@ struct Index {
   aboutToAppear(): void {
     const context = getContext(this) as Context;
     this.initManagers(context);
+    this.restoreFromContinue();
+  }
+
+  private restoreFromContinue(): void {
+    const settingsStr = AppStorage.get<string>(CONTINUE_KEY);
+    if (settingsStr && settingsStr.length > 0) {
+      try {
+        const record = JSON.parse(settingsStr) as SettingsRecord;
+        const settings = Settings.fromRecord(record);
+        AppStorage.delete(CONTINUE_KEY);
+        setTimeout(() => {
+          this.pathInfos.pushPathByName('Led', settings);
+        }, 300);
+      } catch (e) {
+        AppStorage.delete(CONTINUE_KEY);
+      }
+    }
   }
 
   private async initManagers(context: Context): Promise<void> {
@@ -140,9 +161,12 @@ struct Index {
       this.fontColor,
       this.speed,
       this.displayArea,
+      this.displayMode,
       this.getThemeBgColors(),
       this.themeName
     );
+
+    AppStorage.setOrCreate<string>(CONTINUE_KEY, JSON.stringify(settings.toRecord()));
 
     if (this.isManagersReady) {
       const historyItem: HistoryItem = {
@@ -185,12 +209,20 @@ struct Index {
 
           Column() {
             Row() {
-              Text(this.content)
-                .textOverflow({ overflow: TextOverflow.MARQUEE })
-                .marqueeOptions({ start: true, step: this.speed })
-                .fontSize(this.fontSize / 1.8)
-                .fontWeight(this.fontWeight)
-                .fontColor(this.fontColor)
+              if (this.displayMode === DisplayMode.SLIDE) {
+                Text(this.content)
+                  .textOverflow({ overflow: TextOverflow.MARQUEE })
+                  .marqueeOptions({ start: true, step: this.speed })
+                  .fontSize(this.fontSize / 1.8)
+                  .fontWeight(this.fontWeight)
+                  .fontColor(this.fontColor)
+              } else {
+                Text(this.content)
+                  .fontSize(this.fontSize / 1.8)
+                  .fontWeight(this.fontWeight)
+                  .fontColor(this.fontColor)
+                  .textAlign(TextAlign.Center)
+              }
             }
             .width('100%')
             .height('100%')
@@ -417,33 +449,35 @@ struct Index {
                 .margin({ top: 12 })
                 .justifyContent(FlexAlign.SpaceBetween)
 
-                Row() {
-                  Text('弹幕速度')
-                    .fontSize(16)
-                    .fontWeight(FontWeight.Medium)
-                  Text(this.speedFlag)
-                    .fontSize(14)
-                }
-                .width('100%')
-                .height(48)
-                .margin({ top: 12 })
-                .justifyContent(FlexAlign.SpaceBetween)
+                if (this.displayMode === DisplayMode.SLIDE) {
+                  Row() {
+                    Text('弹幕速度')
+                      .fontSize(16)
+                      .fontWeight(FontWeight.Medium)
+                    Text(this.speedFlag)
+                      .fontSize(14)
+                  }
+                  .width('100%')
+                  .height(48)
+                  .margin({ top: 12 })
+                  .justifyContent(FlexAlign.SpaceBetween)
 
-                Slider({
-                  value: this.speed,
-                  min: 1,
-                  max: 12,
-                  step: 1,
-                  style: SliderStyle.InSet
-                })
-                  .width('calc(100% + 12vp)')
-                  .height(40)
-                  .blockColor(Color.White)
-                  .trackColor('#F1F3F5')
-                  .selectedColor('#0A59F7')
-                  .onChange((value: number) => {
-                    this.handleSpeedChange(value);
+                  Slider({
+                    value: this.speed,
+                    min: 1,
+                    max: 12,
+                    step: 1,
+                    style: SliderStyle.InSet
                   })
+                    .width('calc(100% + 12vp)')
+                    .height(40)
+                    .blockColor(Color.White)
+                    .trackColor('#F1F3F5')
+                    .selectedColor('#0A59F7')
+                    .onChange((value: number) => {
+                      this.handleSpeedChange(value);
+                    })
+                }
 
                 Row() {
                   Text('弹幕颜色')
@@ -467,6 +501,30 @@ struct Index {
                         }
                       })
                   }
+                }
+                .width('100%')
+                .height(48)
+                .margin({ top: 12 })
+                .justifyContent(FlexAlign.SpaceBetween)
+
+                Row() {
+                  Text('显示方式')
+                    .fontSize(16)
+                    .fontWeight(FontWeight.Medium)
+                  Select([
+                    { value: '滑动弹幕' },
+                    { value: '滞留弹幕' }
+                  ])
+                    .value(this.displayModeIndex === 0 ? '滑动弹幕' : '滞留弹幕')
+                    .selected(this.displayModeIndex)
+                    .backgroundColor('#FFFFFF')
+                    .fontColor('#99000000')
+                    .borderWidth(0)
+                    .onSelect((index: number) => {
+                      this.displayModeIndex = index;
+                      const modes = [DisplayMode.SLIDE, DisplayMode.STATIC];
+                      this.displayMode = modes[index];
+                    })
                 }
                 .width('100%')
                 .height(48)

@@ -19,6 +19,23 @@ export enum DisplayArea {
   BOTTOM = 'bottom'
 }
 
+export enum DisplayMode {
+  SLIDE = 'slide',
+  STATIC = 'static'
+}
+
+export interface SettingsRecord {
+  content: string;
+  fontSize: number;
+  fontWeight: number;
+  fontColor: string;
+  speed: number;
+  displayArea: DisplayArea;
+  displayMode: DisplayMode;
+  bgColor: string[];
+  themeName: string;
+}
+
 export class Settings {
   content: string = '';
   fontSize: number = 0;
@@ -26,6 +43,7 @@ export class Settings {
   fontColor: string = '#FFFFFF';
   speed: number = 6;
   displayArea: DisplayArea = DisplayArea.CENTER;
+  displayMode: DisplayMode = DisplayMode.SLIDE;
   bgColor: string[] = ['#013C9C', '#3066E4', '#43A1F4'];
   themeName: string = '默认蓝';
 
@@ -36,6 +54,7 @@ export class Settings {
     fontColor?: string,
     speed?: number,
     displayArea?: DisplayArea,
+    displayMode?: DisplayMode,
     bgColor?: string[],
     themeName?: string
   ) {
@@ -51,11 +70,49 @@ export class Settings {
     if (displayArea !== undefined) {
       this.displayArea = displayArea;
     }
+    if (displayMode !== undefined) {
+      this.displayMode = displayMode;
+    }
     if (bgColor !== undefined) {
       this.bgColor = bgColor;
     }
     if (themeName !== undefined) {
       this.themeName = themeName;
     }
+  }
+
+  toRecord(): SettingsRecord {
+    const record: SettingsRecord = {
+      content: this.content,
+      fontSize: this.fontSize,
+      fontWeight: this.fontWeight as number,
+      fontColor: this.fontColor,
+      speed: this.speed,
+      displayArea: this.displayArea,
+      displayMode: this.displayMode,
+      bgColor: this.bgColor,
+      themeName: this.themeName
+    };
+    return record;
+  }
+
+  static fromRecord(record: SettingsRecord): Settings {
+    let fw: FontWeight = FontWeight.Regular;
+    if (record.fontWeight === FontWeight.Medium as number) {
+      fw = FontWeight.Medium;
+    } else if (record.fontWeight === FontWeight.Bold as number) {
+      fw = FontWeight.Bold;
+    }
+    return new Settings(
+      record.content,
+      record.fontSize,
+      fw,
+      record.fontColor,
+      record.speed,
+      record.displayArea,
+      record.displayMode,
+      record.bgColor,
+      record.themeName
+    );
   }
 }

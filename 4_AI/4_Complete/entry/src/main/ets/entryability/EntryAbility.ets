@@ -16,8 +16,10 @@
 import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
+import { Settings, SettingsRecord } from '../model/Settings';
 
 const TAG = 'testTag';
+const CONTINUE_KEY = 'continueSettings';
 
 export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
@@ -55,5 +57,21 @@ export default class EntryAbility extends UIAbility {
 
   onBackground(): void {
     hilog.info(0x0000, TAG, '%{public}s', 'Ability onBackground');
+  }
+
+  onSaveData(want: Want, params: Record<string, Object>): void {
+    hilog.info(0x0000, TAG, '%{public}s', 'Ability onSaveData');
+    const settingsStr = AppStorage.get<string>(CONTINUE_KEY) || '';
+    if (settingsStr.length > 0) {
+      params[CONTINUE_KEY] = settingsStr;
+    }
+  }
+
+  onRestoreData(want: Want, params: Record<string, Object>): void {
+    hilog.info(0x0000, TAG, '%{public}s', 'Ability onRestoreData');
+    const settingsStr = params[CONTINUE_KEY] as string;
+    if (settingsStr && settingsStr.length > 0) {
+      AppStorage.setOrCreate<string>(CONTINUE_KEY, settingsStr);
+    }
   }
 }
