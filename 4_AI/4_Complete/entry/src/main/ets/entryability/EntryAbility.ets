@@ -16,7 +16,7 @@
 import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
-import { Settings, SettingsRecord } from '../model/Settings';
+import { Settings } from '../model/Settings';
 
 const TAG = 'testTag';
 const CONTINUE_KEY = 'continueSettings';
@@ -45,6 +45,16 @@ export default class EntryAbility extends UIAbility {
       }
       hilog.info(0x0000, TAG, 'Succeeded in loading the content.');
     });
+
+    try {
+      const mainWindow = windowStage.getMainWindowSync();
+      const screenWidth = mainWindow.getWindowProperties().windowRect.width;
+      if (screenWidth >= 840) {
+        mainWindow.setWindowLayoutFullScreen(false);
+      }
+    } catch (err) {
+      hilog.error(0x0000, TAG, 'Failed to set window mode. Cause: %{public}s', JSON.stringify(err));
+    }
   }
 
   onWindowStageDestroy(): void {
@@ -69,9 +79,12 @@ export default class EntryAbility extends UIAbility {
 
   onRestoreData(want: Want, params: Record<string, Object>): void {
     hilog.info(0x0000, TAG, '%{public}s', 'Ability onRestoreData');
-    const settingsStr = params[CONTINUE_KEY] as string;
-    if (settingsStr && settingsStr.length > 0) {
-      AppStorage.setOrCreate<string>(CONTINUE_KEY, settingsStr);
+    const raw = params[CONTINUE_KEY];
+    if (raw !== undefined && raw !== null && typeof raw === 'string') {
+      const settingsStr = raw as string;
+      if (settingsStr.length > 0) {
+        AppStorage.setOrCreate<string>(CONTINUE_KEY, settingsStr);
+      }
     }
   }
 }

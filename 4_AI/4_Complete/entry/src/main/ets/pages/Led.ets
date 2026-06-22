@@ -20,6 +20,7 @@ import { Speaker } from '../utils/Speaker';
 @ComponentV2
 export struct Led {
   @Local settings: Settings = new Settings('', 88, FontWeight.Regular);
+  @Local screenWidth: number = 0;
   speaker: Speaker = new Speaker();
 
   aboutToDisappear(): void {
@@ -36,6 +37,27 @@ export struct Led {
     return FlexAlign.Center;
   }
 
+  private getAdaptiveFontSize(): number {
+    if (this.screenWidth <= 0) {
+      return this.settings.fontSize;
+    }
+    const scale = Math.min(this.screenWidth / 800, 2.0);
+    return Math.round(this.settings.fontSize * scale);
+  }
+
+  private getPreferredOrientation(): window.Orientation {
+    if (this.screenWidth > 0 && this.screenWidth >= 840) {
+      return window.Orientation.UNSPECIFIED;
+    }
+    return window.Orientation.LANDSCAPE;
+  }
+
+  private getShadowRadius(): number {
+    if (this.screenWidth >= 1200) return 16;
+    if (this.screenWidth >= 840) return 12;
+    return 8;
+  }
+
   build() {
     NavDestination() {
       Column() {
@@ -46,20 +68,35 @@ export struct Led {
               start: true,
               step: this.settings.speed
             })
-            .fontSize(this.settings.fontSize)
+            .fontSize(this.getAdaptiveFontSize())
             .fontWeight(this.settings.fontWeight)
             .fontColor(this.settings.fontColor)
+            .shadow({
+              radius: this.getShadowRadius(),
+              color: 'rgba(0, 0, 0, 0.5)',
+              offsetX: 2,
+              offsetY: 2
+            })
         } else {
           Text(this.settings.content)
-            .fontSize(this.settings.fontSize)
+            .fontSize(this.getAdaptiveFontSize())
             .fontWeight(this.settings.fontWeight)
             .fontColor(this.settings.fontColor)
             .textAlign(TextAlign.Center)
+            .shadow({
+              radius: this.getShadowRadius(),
+              color: 'rgba(0, 0, 0, 0.5)',
+              offsetX: 2,
+              offsetY: 2
+            })
         }
       }
       .width('100%')
       .height('100%')
       .justifyContent(this.getContentAlign())
+      .onAreaChange((oldValue: Area, newValue: Area) => {
+        this.screenWidth = newValue.width as number;
+      })
     }
     .onReady((context: NavDestinationContext) => {
       this.settings = context.pathInfo.param as Settings;
@@ -74,7 +111,7 @@ export struct Led {
       }
     }])
     .backButtonIcon($r('app.media.chevron_left'))
-    .preferredOrientation(window.Orientation.LANDSCAPE)
+    .preferredOrientation(this.getPreferredOrientation())
     .linearGradient({
       direction: GradientDirection.Right,
       colors: [

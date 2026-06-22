@@ -1,5 +1,5 @@
 import { preferences } from '@kit.ArkData';
-import { Context } from '@kit.AbilityKit';
+import { common } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 
 const TAG = 'HistoryManager';
@@ -15,7 +15,7 @@ export interface HistoryItem {
 export class HistoryManager {
   private prefs?: preferences.Preferences;
 
-  async init(context: Context): Promise<void> {
+  async init(context: common.Context): Promise<void> {
     try {
       this.prefs = await preferences.getPreferences(context, STORE_NAME);
     } catch (error) {
@@ -27,13 +27,17 @@ export class HistoryManager {
     if (!this.prefs) {
       return;
     }
-    let list: HistoryItem[] = await this.getHistory();
-    list.unshift(item);
-    if (list.length > 100) {
-      list = list.slice(0, 100);
+    try {
+      let list: HistoryItem[] = await this.getHistory();
+      list.unshift(item);
+      if (list.length > 100) {
+        list = list.slice(0, 100);
+      }
+      await this.prefs.put(KEY_HISTORY, JSON.stringify(list));
+      await this.prefs.flush();
+    } catch (error) {
+      hilog.error(0x0000, TAG, `addHistory failed: ${error}`);
     }
-    await this.prefs.put(KEY_HISTORY, JSON.stringify(list));
-    await this.prefs.flush();
   }
 
   async getHistory(): Promise<HistoryItem[]> {
@@ -52,7 +56,11 @@ export class HistoryManager {
     if (!this.prefs) {
       return;
     }
-    await this.prefs.put(KEY_HISTORY, '[]');
-    await this.prefs.flush();
+    try {
+      await this.prefs.put(KEY_HISTORY, '[]');
+      await this.prefs.flush();
+    } catch (error) {
+      hilog.error(0x0000, TAG, `clearHistory failed: ${error}`);
+    }
   }
 }

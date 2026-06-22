@@ -19,9 +19,17 @@ import { PresetTemplates, PresetTemplate } from '../utils/PresetTemplates';
 import { KeywordFilter } from '../utils/KeywordFilter';
 import { HistoryManager, HistoryItem } from '../utils/HistoryManager';
 import { StatsManager } from '../utils/StatsManager';
-import { Context } from '@kit.AbilityKit';
+import { common } from '@kit.AbilityKit';
+
 
 const CONTINUE_KEY = 'continueSettings';
+
+const DANMAKU_COLORS: string[] = [
+  '#FFFFFF', '#FFF176', '#FFD740', '#FFB74D',
+  '#FF8A80', '#FF5252', '#F48FB1', '#E040FB',
+  '#7C4DFF', '#448AFF', '#40C4FF', '#80D8FF',
+  '#64FFDA', '#69F0AE', '#B2FF59', '#FF6E40'
+];
 
 @Entry
 @ComponentV2
@@ -34,6 +42,7 @@ struct Index {
   fontWeights: FontWeight[] = [FontWeight.Regular, FontWeight.Medium, FontWeight.Bold];
 
   @Local fontColor: string = '#FFFFFF';
+  @Local selectedColorIndex: number = 0;
   @Local speed: number = 6;
   @Local speedFlag: string = '中';
   @Local displayArea: DisplayArea = DisplayArea.CENTER;
@@ -59,8 +68,38 @@ struct Index {
   statsManager: StatsManager = new StatsManager();
   @Local isManagersReady: boolean = false;
 
+  @Local currentBreakpoint: string = 'sm';
+
+  private titleFontSize(): number {
+    if (this.currentBreakpoint === 'lg') return 34;
+    if (this.currentBreakpoint === 'md') return 30;
+    return 26;
+  }
+
+  private sectionLabelFontSize(): number {
+    if (this.currentBreakpoint === 'lg') return 16;
+    if (this.currentBreakpoint === 'md') return 15;
+    return 14;
+  }
+
+  private settingLabelFontSize(): number {
+    if (this.currentBreakpoint === 'lg') return 18;
+    if (this.currentBreakpoint === 'md') return 17;
+    return 16;
+  }
+
+  private btnHeight(): number {
+    return this.currentBreakpoint === 'sm' ? 44 : 48;
+  }
+
+  private previewHeight(): number {
+    if (this.currentBreakpoint === 'lg') return 360;
+    if (this.currentBreakpoint === 'md') return 280;
+    return 199;
+  }
+
   aboutToAppear(): void {
-    const context = getContext(this) as Context;
+    const context = this.getUIContext().getHostContext() as common.Context;
     this.initManagers(context);
     this.restoreFromContinue();
   }
@@ -81,7 +120,7 @@ struct Index {
     }
   }
 
-  private async initManagers(context: Context): Promise<void> {
+  private async initManagers(context: common.Context): Promise<void> {
     await Promise.all([
       this.keywordFilter.init(context),
       this.historyManager.init(context),
@@ -116,6 +155,7 @@ struct Index {
     this.themeName = names[index];
     const theme = ThemeManager.getThemeByName(this.themeName);
     this.fontColor = theme.defaultFontColor;
+    this.selectedColorIndex = DANMAKU_COLORS.indexOf(theme.defaultFontColor);
   }
 
   private handleSpeedChange(value: number): void {
@@ -184,419 +224,520 @@ struct Index {
   @Builder
   buildSectionHeader(title: string) {
     Text(title)
-      .fontSize(14)
-      .fontColor('#99000000')
+      .fontSize(this.sectionLabelFontSize())
+      .fontColor('#5F6368')
       .fontWeight(FontWeight.Medium)
       .margin({ left: 12, bottom: 8 })
+  }
+
+  @Builder
+  buildPreviewArea() {
+    Column() {
+      Text('预览')
+        .fontSize(this.sectionLabelFontSize())
+        .fontColor('#5F6368')
+        .fontWeight(FontWeight.Medium)
+        .margin({ left: 28 })
+
+      Column() {
+        Row() {
+          if (this.displayMode === DisplayMode.SLIDE) {
+            Text(this.content)
+              .textOverflow({ overflow: TextOverflow.MARQUEE })
+              .marqueeOptions({ start: true, step: this.speed })
+              .fontSize(this.fontSize / 1.8)
+              .fontWeight(this.fontWeight)
+              .fontColor(this.fontColor)
+              .shadow({
+                radius: 4,
+                color: 'rgba(0, 0, 0, 0.4)',
+                offsetX: 1,
+                offsetY: 1
+              })
+          } else {
+            Text(this.content)
+              .fontSize(this.fontSize / 1.8)
+              .fontWeight(this.fontWeight)
+              .fontColor(this.fontColor)
+              .textAlign(TextAlign.Center)
+              .shadow({
+                radius: 4,
+                color: 'rgba(0, 0, 0, 0.4)',
+                offsetX: 1,
+                offsetY: 1
+              })
+          }
+        }
+        .width('100%')
+        .height('100%')
+        .linearGradient({
+          direction: GradientDirection.Right,
+          colors: [
+            [this.getThemeBgColors()[0], 0.0],
+            [this.getThemeBgColors()[1], 0.5],
+            [this.getThemeBgColors()[2], 1.0]
+          ]
+        })
+        .borderRadius(16)
+        .justifyContent(this.getPreviewAlign())
+      }
+      .width('100%')
+      .height(this.previewHeight())
+      .backgroundColor('rgba(255,255,255,0.9)')
+      .border({ width: 1, color: 'rgba(0,0,0,0.06)' })
+      .padding({ top: 24, right: 16, bottom: 24, left: 16 })
+      .margin({ top: 8 })
+      .alignItems(HorizontalAlign.Start)
+    }
+    .width('100%')
+    .margin({ top: 28 })
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  buildSettingsArea() {
+    Scroll() {
+      Column() {
+        Column() {
+          Text('弹幕内容')
+            .fontSize(this.sectionLabelFontSize())
+            .fontColor('#5F6368')
+            .fontWeight(FontWeight.Medium)
+            .margin({ left: 12 })
+
+          TextArea({ text: this.content })
+            .backgroundColor(Color.White)
+            .fontColor('#1A1C1E')
+            .maxLength(50)
+            .showCounter(true, { thresholdPercentage: 1, highlightBorder: true })
+            .height(72)
+            .padding({ top: 8, right: 16, bottom: 8, left: 16 })
+            .margin({ top: 8 })
+            .borderRadius(16)
+            .border({ width: 1, color: 'rgba(0,0,0,0.08)' })
+            .onChange((value: string) => {
+              this.content = value;
+            })
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+        .margin({ top: 28, bottom: 12 })
+
+        Row() {
+          Button('预设模板')
+            .fontSize(13)
+            .height(this.btnHeight())
+            .backgroundColor('rgba(0,0,0,0.04)')
+            .fontColor('#3C4043')
+            .border({ width: 1, color: 'rgba(0,0,0,0.08)' })
+            .borderRadius(12)
+            .onClick(() => { this.showPresetPanel = !this.showPresetPanel; })
+          Button('关键词过滤')
+            .fontSize(13)
+            .height(this.btnHeight())
+            .backgroundColor('rgba(0,0,0,0.04)')
+            .fontColor('#3C4043')
+            .border({ width: 1, color: 'rgba(0,0,0,0.08)' })
+            .borderRadius(12)
+            .onClick(() => { this.showKeywordPanel = !this.showKeywordPanel; })
+          Button('历史记录')
+            .fontSize(13)
+            .height(this.btnHeight())
+            .backgroundColor('rgba(0,0,0,0.04)')
+            .fontColor('#3C4043')
+            .border({ width: 1, color: 'rgba(0,0,0,0.08)' })
+            .borderRadius(12)
+            .onClick(() => { this.pathInfos.pushPathByName('History', null); })
+          Button('统计面板')
+            .fontSize(13)
+            .height(this.btnHeight())
+            .backgroundColor('rgba(0,0,0,0.04)')
+            .fontColor('#3C4043')
+            .border({ width: 1, color: 'rgba(0,0,0,0.08)' })
+            .borderRadius(12)
+            .onClick(() => { this.pathInfos.pushPathByName('Stats', null); })
+        }
+        .width('100%')
+        .justifyContent(FlexAlign.SpaceEvenly)
+        .margin({ top: 8, bottom: 12 })
+
+        if (this.showPresetPanel) {
+          Column() {
+            Text('预设模板库')
+              .fontSize(this.sectionLabelFontSize())
+              .fontColor('#5F6368')
+              .fontWeight(FontWeight.Medium)
+              .margin({ left: 12, top: 8 })
+
+            Flex({ wrap: FlexWrap.Wrap }) {
+              ForEach(PresetTemplates.getAll(), (template: PresetTemplate) => {
+                Button(template.label)
+                  .fontSize(this.sectionLabelFontSize())
+                  .height(this.btnHeight())
+                  .margin(4)
+                  .backgroundColor('rgba(0,0,0,0.04)')
+                  .fontColor('#3C4043')
+                  .border({ width: 1, color: 'rgba(0,0,0,0.08)' })
+                  .onClick(() => { this.applyPreset(template); })
+              }, (template: PresetTemplate) => template.label)
+            }
+            .width('100%')
+            .padding({ left: 12, right: 12, top: 8, bottom: 12 })
+          }
+          .width('100%')
+          .backgroundColor(Color.White)
+          .border({ width: 1, color: 'rgba(0,0,0,0.06)' })
+          .borderRadius(16)
+          .margin({ bottom: 12 })
+        }
+
+        if (this.showKeywordPanel) {
+          Column() {
+            Text('关键词过滤')
+              .fontSize(this.sectionLabelFontSize())
+              .fontColor('#5F6368')
+              .fontWeight(FontWeight.Medium)
+              .margin({ left: 12, top: 8, bottom: 8 })
+
+            Row() {
+              TextInput({ text: this.filterKeyword, placeholder: '输入过滤关键词' })
+                .layoutWeight(1)
+                .height(this.btnHeight())
+                .backgroundColor('rgba(0,0,0,0.03)')
+                .borderRadius(8)
+                .onChange((value: string) => { this.filterKeyword = value; })
+              Button('添加')
+                .fontSize(13)
+                .height(this.btnHeight())
+                .backgroundColor('#0A59F7')
+                .fontColor('#FFFFFF')
+                .borderRadius(12)
+                .margin({ left: 8 })
+                .onClick(() => { this.addKeyword(); })
+            }
+            .width('100%')
+            .padding({ left: 12, right: 12 })
+            .margin({ bottom: 8 })
+
+            if (this.keywordList.length > 0) {
+              Flex({ wrap: FlexWrap.Wrap }) {
+                ForEach(this.keywordList, (keyword: string) => {
+                  Row() {
+                    Text(keyword)
+                      .fontSize(13)
+                      .fontColor('#3C4043')
+                      .margin({ right: 4 })
+                    Text('×')
+                      .fontSize(13)
+                      .fontColor('#999999')
+                      .onClick(() => { this.removeKeyword(keyword); })
+                  }
+                  .padding({ left: 8, right: 8, top: 4, bottom: 4 })
+                  .margin(4)
+                  .backgroundColor('rgba(0,0,0,0.04)')
+                  .border({ width: 1, color: 'rgba(0,0,0,0.08)' })
+                  .borderRadius(12)
+                }, (keyword: string) => keyword)
+              }
+              .width('100%')
+              .padding({ left: 12, right: 12, bottom: 12 })
+            }
+          }
+          .width('100%')
+          .backgroundColor(Color.White)
+          .border({ width: 1, color: 'rgba(0,0,0,0.06)' })
+          .borderRadius(16)
+          .margin({ bottom: 12 })
+        }
+
+        Column() {
+          this.buildSectionHeader('显示设置');
+
+          Column() {
+            Column() {
+              Row() {
+                Text('字体大小')
+                  .fontSize(this.settingLabelFontSize())
+                  .fontWeight(FontWeight.Medium)
+                Text(this.fontSizeFlag)
+                  .fontSize(this.sectionLabelFontSize())
+              }
+              .width('100%')
+              .height(this.btnHeight())
+              .justifyContent(FlexAlign.SpaceBetween)
+
+              Slider({
+                value: this.fontSize,
+                min: 88,
+                max: 248,
+                step: 80,
+                style: SliderStyle.InSet
+              })
+                .width('calc(100% + 12vp)')
+                .height(this.btnHeight())
+                .blockColor('#5F6368')
+                .trackColor('rgba(0,0,0,0.06)')
+                .selectedColor('#0A59F7')
+                .showSteps(true)
+                .onChange((value: number) => {
+                  this.fontSize = value;
+                  if (this.fontSize === 88) {
+                    this.fontSizeFlag = '小';
+                  } else if (this.fontSize === 248) {
+                    this.fontSizeFlag = '大';
+                  } else {
+                    this.fontSizeFlag = '中';
+                  }
+                })
+            }
+
+            Row() {
+              Text('字体粗细')
+                .fontSize(this.settingLabelFontSize())
+                .fontWeight(FontWeight.Medium)
+              Select([
+                { value: this.fontWeights[0].toString() },
+                { value: this.fontWeights[1].toString() },
+                { value: this.fontWeights[2].toString() }
+              ])
+                .value(this.fontWeight.toString())
+                .selected(this.selectedIndex)
+                .backgroundColor(Color.White)
+                .fontColor('#5F6368')
+                .borderWidth(0)
+                .onSelect((index: number) => {
+                  this.fontWeight = this.fontWeights[index];
+                  this.selectedIndex = index;
+                })
+            }
+            .width('100%')
+            .height(this.btnHeight())
+            .margin({ top: 12 })
+            .justifyContent(FlexAlign.SpaceBetween)
+
+            if (this.displayMode === DisplayMode.SLIDE) {
+              Row() {
+                Text('弹幕速度')
+                  .fontSize(this.settingLabelFontSize())
+                  .fontWeight(FontWeight.Medium)
+                Text(this.speedFlag)
+                  .fontSize(this.sectionLabelFontSize())
+              }
+              .width('100%')
+              .height(this.btnHeight())
+              .margin({ top: 12 })
+              .justifyContent(FlexAlign.SpaceBetween)
+
+              Slider({
+                value: this.speed,
+                min: 1,
+                max: 12,
+                step: 1,
+                style: SliderStyle.InSet
+              })
+                .width('calc(100% + 12vp)')
+                .height(this.btnHeight())
+                .blockColor('#5F6368')
+                .trackColor('rgba(0,0,0,0.06)')
+                .selectedColor('#0A59F7')
+                .onChange((value: number) => {
+                  this.handleSpeedChange(value);
+                })
+            }
+
+            Row() {
+              Text('弹幕颜色')
+                .fontSize(this.settingLabelFontSize())
+                .fontWeight(FontWeight.Medium)
+              Row() {
+                Circle()
+                  .width(32)
+                  .height(32)
+                  .fill(this.fontColor)
+                  .border({ width: 2, color: '#CCCCCC' })
+                  .shadow({ radius: 4, color: 'rgba(0,0,0,0.15)', offsetX: 0, offsetY: 2 })
+              }
+            }
+            .width('100%')
+            .height(this.btnHeight())
+            .margin({ top: 12 })
+            .justifyContent(FlexAlign.SpaceBetween)
+
+            Flex({ wrap: FlexWrap.Wrap }) {
+              ForEach(DANMAKU_COLORS, (color: string, index: number) => {
+                Column() {
+                  Circle()
+                    .width(this.currentBreakpoint === 'sm' ? 36 : 40)
+                    .height(this.currentBreakpoint === 'sm' ? 36 : 40)
+                    .fill(color)
+                    .border({
+                      width: index === this.selectedColorIndex ? 3 : 1,
+                      color: index === this.selectedColorIndex ? '#0A59F7' : '#DDDDDD'
+                    })
+                    .shadow({
+                      radius: index === this.selectedColorIndex ? 6 : 2,
+                      color: 'rgba(0,0,0,0.2)',
+                      offsetX: 0,
+                      offsetY: 2
+                    })
+                }
+                .margin(4)
+                .onClick(() => {
+                  this.fontColor = color;
+                  this.selectedColorIndex = index;
+                })
+              }, (color: string, index: number) => `${color}_${index}`)
+            }
+            .width('100%')
+            .margin({ top: 4, bottom: 4 })
+            .padding({ left: 4, right: 4 })
+
+            Row() {
+              TextInput({ text: this.fontColor, placeholder: '#自定义颜色' })
+                .layoutWeight(1)
+                .height(this.currentBreakpoint === 'sm' ? 32 : 36)
+                .fontSize(12)
+                .borderRadius(8)
+                .onChange((value: string) => {
+                  if (value.startsWith('#') && value.length === 7) {
+                    this.fontColor = value;
+                    this.selectedColorIndex = -1;
+                  }
+                })
+            }
+            .width('100%')
+            .margin({ top: 4 })
+            .justifyContent(FlexAlign.SpaceBetween)
+
+            Row() {
+              Text('显示方式')
+                .fontSize(this.settingLabelFontSize())
+                .fontWeight(FontWeight.Medium)
+              Select([
+                { value: '滑动弹幕' },
+                { value: '滞留弹幕' }
+              ])
+                .value(this.displayModeIndex === 0 ? '滑动弹幕' : '滞留弹幕')
+                .selected(this.displayModeIndex)
+                .backgroundColor(Color.White)
+                .fontColor('#5F6368')
+                .borderWidth(0)
+                .onSelect((index: number) => {
+                  this.displayModeIndex = index;
+                  const modes = [DisplayMode.SLIDE, DisplayMode.STATIC];
+                  this.displayMode = modes[index];
+                })
+            }
+            .width('100%')
+            .height(this.btnHeight())
+            .margin({ top: 12 })
+            .justifyContent(FlexAlign.SpaceBetween)
+
+            Row() {
+              Text('显示区域')
+                .fontSize(this.settingLabelFontSize())
+                .fontWeight(FontWeight.Medium)
+              Select([
+                { value: '上方' },
+                { value: '居中' },
+                { value: '下方' }
+              ])
+                .value(this.displayAreaIndex === 0 ? '上方' : this.displayAreaIndex === 1 ? '居中' : '下方')
+                .selected(this.displayAreaIndex)
+                .backgroundColor(Color.White)
+                .fontColor('#5F6368')
+                .borderWidth(0)
+                .onSelect((index: number) => {
+                  this.handleDisplayAreaChange(index);
+                })
+            }
+            .width('100%')
+            .height(this.btnHeight())
+            .margin({ top: 12 })
+            .justifyContent(FlexAlign.SpaceBetween)
+
+            Row() {
+              Text('弹幕主题')
+                .fontSize(this.settingLabelFontSize())
+                .fontWeight(FontWeight.Medium)
+              Select(ThemeManager.getAllThemeNames().map((name: string): SelectOption => { return { value: name }; }))
+                .value(this.themeName)
+                .selected(this.themeIndex)
+                .backgroundColor(Color.White)
+                .fontColor('#5F6368')
+                .borderWidth(0)
+                .onSelect((index: number) => {
+                  this.handleThemeChange(index);
+                })
+            }
+            .width('100%')
+            .height(this.btnHeight())
+            .margin({ top: 12 })
+            .justifyContent(FlexAlign.SpaceBetween)
+          }
+          .width('100%')
+          .padding({ left: 12, right: 12, top: 4, bottom: 4 })
+          .margin({ bottom: 12 })
+          .backgroundColor(Color.White)
+          .border({ width: 1, color: 'rgba(0,0,0,0.06)' })
+          .borderRadius(16)
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+
+        Button('显示弹幕')
+          .height(Math.max(this.btnHeight(), 48))
+          .backgroundColor('#0A59F7')
+          .fontColor('#FFFFFF')
+          .borderRadius(16)
+          .shadow({ radius: 12, color: 'rgba(10,89,247,0.35)', offsetX: 0, offsetY: 4 })
+          .margin({ top: 32, bottom: 32 })
+          .width('100%')
+          .onClick(() => { this.onSendDanmu(); })
+      }
+      .padding({ left: 16, right: 16 })
+    }
+    .scrollBar(BarState.Off)
+    .edgeEffect(EdgeEffect.Spring)
   }
 
   build() {
     Navigation(this.pathInfos) {
       Column() {
         Text('手持弹幕')
-          .fontSize(26)
-          .fontColor('#000000')
+          .fontSize(this.titleFontSize())
+          .fontColor('#1A1C1E')
           .fontWeight(FontWeight.Bold)
           .margin({ left: 16 })
-          .height(56)
+          .height(this.btnHeight() + 12)
+          .shadow({ radius: 8, color: 'rgba(30,111,255,0.15)', offsetX: 0, offsetY: 0 })
 
-        Column() {
-          Text('预览')
-            .fontSize(14)
-            .fontColor('#99000000')
-            .fontWeight(FontWeight.Medium)
-            .margin({ left: 28 })
-
-          Column() {
-            Row() {
-              if (this.displayMode === DisplayMode.SLIDE) {
-                Text(this.content)
-                  .textOverflow({ overflow: TextOverflow.MARQUEE })
-                  .marqueeOptions({ start: true, step: this.speed })
-                  .fontSize(this.fontSize / 1.8)
-                  .fontWeight(this.fontWeight)
-                  .fontColor(this.fontColor)
-              } else {
-                Text(this.content)
-                  .fontSize(this.fontSize / 1.8)
-                  .fontWeight(this.fontWeight)
-                  .fontColor(this.fontColor)
-                  .textAlign(TextAlign.Center)
-              }
-            }
-            .width('100%')
-            .height('100%')
-            .linearGradient({
-              direction: GradientDirection.Right,
-              colors: [
-                [this.getThemeBgColors()[0], 0.0],
-                [this.getThemeBgColors()[1], 0.5],
-                [this.getThemeBgColors()[2], 1.0]
-              ]
-            })
-            .borderRadius(16)
-            .justifyContent(this.getPreviewAlign())
+        GridRow({
+          columns: {
+            sm: 1,
+            md: 2,
+            lg: 2
+          },
+          gutter: { x: 16 },
+          breakpoints: { value: ['600vp', '840vp'] }
+        }) {
+          GridCol({ span: { sm: 1, md: 1, lg: 1 } }) {
+            this.buildPreviewArea()
           }
-          .width('100%')
-          .height(199)
-          .backgroundColor('#E5E5EA')
-          .padding({ top: 24, right: 16, bottom: 24, left: 16 })
-          .margin({ top: 8 })
-          .alignItems(HorizontalAlign.Start)
+
+          GridCol({ span: { sm: 1, md: 1, lg: 1 } }) {
+            this.buildSettingsArea()
+          }
         }
+        .onBreakpointChange((breakpoint: string) => {
+          this.currentBreakpoint = breakpoint;
+        })
         .width('100%')
-        .margin({ top: 28 })
-        .alignItems(HorizontalAlign.Start)
-
-        Scroll() {
-          Column() {
-            Column() {
-              Text('弹幕内容')
-                .fontSize(14)
-                .fontColor('#99000000')
-                .fontWeight(FontWeight.Medium)
-                .margin({ left: 12 })
-
-              TextArea({ text: this.content })
-                .backgroundColor(Color.White)
-                .maxLength(50)
-                .showCounter(true, { thresholdPercentage: 1, highlightBorder: true })
-                .height(72)
-                .padding({ top: 8, right: 16, bottom: 8, left: 16 })
-                .margin({ top: 8 })
-                .borderRadius(16)
-                .onChange((value: string) => {
-                  this.content = value;
-                })
-            }
-            .width('100%')
-            .alignItems(HorizontalAlign.Start)
-            .margin({ top: 28, bottom: 12 })
-
-            Row() {
-              Button('预设模板')
-                .fontSize(13)
-                .height(32)
-                .backgroundColor('#E8E8E8')
-                .fontColor('#333333')
-                .onClick(() => { this.showPresetPanel = !this.showPresetPanel; })
-              Button('关键词过滤')
-                .fontSize(13)
-                .height(32)
-                .backgroundColor('#E8E8E8')
-                .fontColor('#333333')
-                .onClick(() => { this.showKeywordPanel = !this.showKeywordPanel; })
-              Button('历史记录')
-                .fontSize(13)
-                .height(32)
-                .backgroundColor('#E8E8E8')
-                .fontColor('#333333')
-                .onClick(() => { this.pathInfos.pushPathByName('History', null); })
-              Button('统计面板')
-                .fontSize(13)
-                .height(32)
-                .backgroundColor('#E8E8E8')
-                .fontColor('#333333')
-                .onClick(() => { this.pathInfos.pushPathByName('Stats', null); })
-            }
-            .width('100%')
-            .justifyContent(FlexAlign.SpaceEvenly)
-            .margin({ top: 8, bottom: 12 })
-
-            if (this.showPresetPanel) {
-              Column() {
-                Text('预设模板库')
-                  .fontSize(14)
-                  .fontColor('#99000000')
-                  .fontWeight(FontWeight.Medium)
-                  .margin({ left: 12, top: 8 })
-
-                Flex({ wrap: FlexWrap.Wrap }) {
-                  ForEach(PresetTemplates.getAll(), (template: PresetTemplate) => {
-                    Button(template.label)
-                      .fontSize(14)
-                      .height(32)
-                      .margin(4)
-                      .backgroundColor('#F1F3F5')
-                      .fontColor('#333333')
-                      .onClick(() => { this.applyPreset(template); })
-                  }, (template: PresetTemplate) => template.label)
-                }
-                .width('100%')
-                .padding({ left: 12, right: 12, top: 8, bottom: 12 })
-              }
-              .width('100%')
-              .backgroundColor(Color.White)
-              .borderRadius(16)
-              .margin({ bottom: 12 })
-            }
-
-            if (this.showKeywordPanel) {
-              Column() {
-                Text('关键词过滤')
-                  .fontSize(14)
-                  .fontColor('#99000000')
-                  .fontWeight(FontWeight.Medium)
-                  .margin({ left: 12, top: 8, bottom: 8 })
-
-                Row() {
-                  TextInput({ text: this.filterKeyword, placeholder: '输入过滤关键词' })
-                    .layoutWeight(1)
-                    .height(36)
-                    .borderRadius(8)
-                    .onChange((value: string) => { this.filterKeyword = value; })
-                  Button('添加')
-                    .fontSize(13)
-                    .height(36)
-                    .margin({ left: 8 })
-                    .onClick(() => { this.addKeyword(); })
-                }
-                .width('100%')
-                .padding({ left: 12, right: 12 })
-                .margin({ bottom: 8 })
-
-                if (this.keywordList.length > 0) {
-                  Flex({ wrap: FlexWrap.Wrap }) {
-                    ForEach(this.keywordList, (keyword: string) => {
-                      Row() {
-                        Text(keyword)
-                          .fontSize(13)
-                          .fontColor('#333333')
-                          .margin({ right: 4 })
-                        Text('×')
-                          .fontSize(13)
-                          .fontColor('#999999')
-                          .onClick(() => { this.removeKeyword(keyword); })
-                      }
-                      .padding({ left: 8, right: 8, top: 4, bottom: 4 })
-                      .margin(4)
-                      .backgroundColor('#F1F3F5')
-                      .borderRadius(12)
-                    }, (keyword: string) => keyword)
-                  }
-                  .width('100%')
-                  .padding({ left: 12, right: 12, bottom: 12 })
-                }
-              }
-              .width('100%')
-              .backgroundColor(Color.White)
-              .borderRadius(16)
-              .margin({ bottom: 12 })
-            }
-
-            Column() {
-              this.buildSectionHeader('显示设置');
-
-              Column() {
-                Column() {
-                  Row() {
-                    Text('字体大小')
-                      .fontSize(16)
-                      .fontWeight(FontWeight.Medium)
-                    Text(this.fontSizeFlag)
-                      .fontSize(14)
-                  }
-                  .width('100%')
-                  .height(48)
-                  .justifyContent(FlexAlign.SpaceBetween)
-
-                  Slider({
-                    value: this.fontSize,
-                    min: 88,
-                    max: 248,
-                    step: 80,
-                    style: SliderStyle.InSet
-                  })
-                    .width('calc(100% + 12vp)')
-                    .height(40)
-                    .blockColor(Color.White)
-                    .trackColor('#F1F3F5')
-                    .selectedColor('#0A59F7')
-                    .showSteps(true)
-                    .onChange((value: number) => {
-                      this.fontSize = value;
-                      if (this.fontSize === 88) {
-                        this.fontSizeFlag = '小';
-                      } else if (this.fontSize === 248) {
-                        this.fontSizeFlag = '大';
-                      } else {
-                        this.fontSizeFlag = '中';
-                      }
-                    })
-                }
-
-                Row() {
-                  Text('字体粗细')
-                    .fontSize(16)
-                    .fontWeight(FontWeight.Medium)
-                  Select([
-                    { value: this.fontWeights[0].toString() },
-                    { value: this.fontWeights[1].toString() },
-                    { value: this.fontWeights[2].toString() }
-                  ])
-                    .value(this.fontWeight.toString())
-                    .selected(this.selectedIndex)
-                    .backgroundColor('#FFFFFF')
-                    .fontColor('#99000000')
-                    .borderWidth(0)
-                    .onSelect((index: number) => {
-                      this.fontWeight = this.fontWeights[index];
-                      this.selectedIndex = index;
-                    })
-                }
-                .width('100%')
-                .height(48)
-                .margin({ top: 12 })
-                .justifyContent(FlexAlign.SpaceBetween)
-
-                if (this.displayMode === DisplayMode.SLIDE) {
-                  Row() {
-                    Text('弹幕速度')
-                      .fontSize(16)
-                      .fontWeight(FontWeight.Medium)
-                    Text(this.speedFlag)
-                      .fontSize(14)
-                  }
-                  .width('100%')
-                  .height(48)
-                  .margin({ top: 12 })
-                  .justifyContent(FlexAlign.SpaceBetween)
-
-                  Slider({
-                    value: this.speed,
-                    min: 1,
-                    max: 12,
-                    step: 1,
-                    style: SliderStyle.InSet
-                  })
-                    .width('calc(100% + 12vp)')
-                    .height(40)
-                    .blockColor(Color.White)
-                    .trackColor('#F1F3F5')
-                    .selectedColor('#0A59F7')
-                    .onChange((value: number) => {
-                      this.handleSpeedChange(value);
-                    })
-                }
-
-                Row() {
-                  Text('弹幕颜色')
-                    .fontSize(16)
-                    .fontWeight(FontWeight.Medium)
-                  Row() {
-                    Circle()
-                      .width(24)
-                      .height(24)
-                      .fill(this.fontColor)
-                      .border({ width: 1, color: '#CCCCCC' })
-                    TextInput({ text: this.fontColor })
-                      .width(100)
-                      .height(32)
-                      .fontSize(12)
-                      .margin({ left: 8 })
-                      .borderRadius(8)
-                      .onChange((value: string) => {
-                        if (value.startsWith('#') && value.length === 7) {
-                          this.fontColor = value;
-                        }
-                      })
-                  }
-                }
-                .width('100%')
-                .height(48)
-                .margin({ top: 12 })
-                .justifyContent(FlexAlign.SpaceBetween)
-
-                Row() {
-                  Text('显示方式')
-                    .fontSize(16)
-                    .fontWeight(FontWeight.Medium)
-                  Select([
-                    { value: '滑动弹幕' },
-                    { value: '滞留弹幕' }
-                  ])
-                    .value(this.displayModeIndex === 0 ? '滑动弹幕' : '滞留弹幕')
-                    .selected(this.displayModeIndex)
-                    .backgroundColor('#FFFFFF')
-                    .fontColor('#99000000')
-                    .borderWidth(0)
-                    .onSelect((index: number) => {
-                      this.displayModeIndex = index;
-                      const modes = [DisplayMode.SLIDE, DisplayMode.STATIC];
-                      this.displayMode = modes[index];
-                    })
-                }
-                .width('100%')
-                .height(48)
-                .margin({ top: 12 })
-                .justifyContent(FlexAlign.SpaceBetween)
-
-                Row() {
-                  Text('显示区域')
-                    .fontSize(16)
-                    .fontWeight(FontWeight.Medium)
-                  Select([
-                    { value: '上方' },
-                    { value: '居中' },
-                    { value: '下方' }
-                  ])
-                    .value(this.displayAreaIndex === 0 ? '上方' : this.displayAreaIndex === 1 ? '居中' : '下方')
-                    .selected(this.displayAreaIndex)
-                    .backgroundColor('#FFFFFF')
-                    .fontColor('#99000000')
-                    .borderWidth(0)
-                    .onSelect((index: number) => {
-                      this.handleDisplayAreaChange(index);
-                    })
-                }
-                .width('100%')
-                .height(48)
-                .margin({ top: 12 })
-                .justifyContent(FlexAlign.SpaceBetween)
-
-                Row() {
-                  Text('弹幕主题')
-                    .fontSize(16)
-                    .fontWeight(FontWeight.Medium)
-                  Select(ThemeManager.getAllThemeNames().map((name: string): SelectOption => { return { value: name }; }))
-                    .value(this.themeName)
-                    .selected(this.themeIndex)
-                    .backgroundColor('#FFFFFF')
-                    .fontColor('#99000000')
-                    .borderWidth(0)
-                    .onSelect((index: number) => {
-                      this.handleThemeChange(index);
-                    })
-                }
-                .width('100%')
-                .height(48)
-                .margin({ top: 12 })
-                .justifyContent(FlexAlign.SpaceBetween)
-              }
-              .width('100%')
-              .padding({ left: 12, right: 12, top: 4, bottom: 4 })
-              .margin({ bottom: 12 })
-              .backgroundColor(Color.White)
-              .borderRadius(16)
-            }
-            .width('100%')
-            .alignItems(HorizontalAlign.Start)
-
-            Button('显示弹幕')
-              .height(40)
-              .backgroundColor('#0A59F7')
-              .margin({ top: 32, bottom: 32 })
-              .width('100%')
-              .onClick(() => { this.onSendDanmu(); })
-          }
-          .padding({ left: 16, right: 16 })
-        }
-        .scrollBar(BarState.Off)
-        .edgeEffect(EdgeEffect.Spring)
+        .layoutWeight(1)
       }
       .width('100%')
       .height('100%')
-      .background('#F1F3F5')
+      .backgroundColor('#E8EDF2')
       .alignItems(HorizontalAlign.Start)
     }
     .mode(NavigationMode.Stack)

@@ -1,5 +1,5 @@
 import { preferences } from '@kit.ArkData';
-import { Context } from '@kit.AbilityKit';
+import { common } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 
 const TAG = 'KeywordFilter';
@@ -10,7 +10,7 @@ export class KeywordFilter {
   private prefs?: preferences.Preferences;
   private keywords: string[] = [];
 
-  async init(context: Context): Promise<void> {
+  async init(context: common.Context): Promise<void> {
     try {
       this.prefs = await preferences.getPreferences(context, STORE_NAME);
       this.keywords = await this.getKeywords();
@@ -36,18 +36,26 @@ export class KeywordFilter {
     if (!this.prefs || this.keywords.includes(keyword)) {
       return;
     }
-    this.keywords.push(keyword);
-    await this.prefs.put(KEY_KEYWORDS, JSON.stringify(this.keywords));
-    await this.prefs.flush();
+    try {
+      this.keywords.push(keyword);
+      await this.prefs.put(KEY_KEYWORDS, JSON.stringify(this.keywords));
+      await this.prefs.flush();
+    } catch (error) {
+      hilog.error(0x0000, TAG, `addKeyword failed: ${error}`);
+    }
   }
 
   async removeKeyword(keyword: string): Promise<void> {
     if (!this.prefs) {
       return;
     }
-    this.keywords = this.keywords.filter(k => k !== keyword);
-    await this.prefs.put(KEY_KEYWORDS, JSON.stringify(this.keywords));
-    await this.prefs.flush();
+    try {
+      this.keywords = this.keywords.filter(k => k !== keyword);
+      await this.prefs.put(KEY_KEYWORDS, JSON.stringify(this.keywords));
+      await this.prefs.flush();
+    } catch (error) {
+      hilog.error(0x0000, TAG, `removeKeyword failed: ${error}`);
+    }
   }
 
   filterContent(content: string): string {

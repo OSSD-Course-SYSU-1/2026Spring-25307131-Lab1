@@ -1,5 +1,5 @@
 import { preferences } from '@kit.ArkData';
-import { Context } from '@kit.AbilityKit';
+import { common } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 
 const TAG = 'StatsManager';
@@ -14,7 +14,7 @@ export interface DailyStat {
 export class StatsManager {
   private prefs?: preferences.Preferences;
 
-  async init(context: Context): Promise<void> {
+  async init(context: common.Context): Promise<void> {
     try {
       this.prefs = await preferences.getPreferences(context, STORE_NAME);
     } catch (error) {
@@ -31,19 +31,23 @@ export class StatsManager {
     if (!this.prefs) {
       return;
     }
-    const today = this.getTodayStr();
-    let list: DailyStat[] = await this.getDailyStats();
-    const found = list.find(item => item.date === today);
-    if (found) {
-      found.count += 1;
-    } else {
-      list.push({ date: today, count: 1 });
+    try {
+      const today = this.getTodayStr();
+      let list: DailyStat[] = await this.getDailyStats();
+      const found = list.find(item => item.date === today);
+      if (found) {
+        found.count += 1;
+      } else {
+        list.push({ date: today, count: 1 });
+      }
+      if (list.length > 30) {
+        list = list.slice(list.length - 30);
+      }
+      await this.prefs.put(KEY_DAILY, JSON.stringify(list));
+      await this.prefs.flush();
+    } catch (error) {
+      hilog.error(0x0000, TAG, `recordSend failed: ${error}`);
     }
-    if (list.length > 30) {
-      list = list.slice(list.length - 30);
-    }
-    await this.prefs.put(KEY_DAILY, JSON.stringify(list));
-    await this.prefs.flush();
   }
 
   async getDailyStats(): Promise<DailyStat[]> {

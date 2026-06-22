@@ -1,18 +1,35 @@
 import { HistoryManager, HistoryItem } from '../utils/HistoryManager';
-import { Context } from '@kit.AbilityKit';
+import { common } from '@kit.AbilityKit';
 
 @ComponentV2
 export struct HistoryPage {
   @Local historyList: HistoryItem[] = [];
   @Local isLoading: boolean = true;
+  @Local currentBreakpoint: string = 'sm';
   historyManager: HistoryManager = new HistoryManager();
 
+  private contentFontSize(): number {
+    if (this.currentBreakpoint === 'lg') return 18;
+    if (this.currentBreakpoint === 'md') return 16;
+    return 15;
+  }
+
+  private metaFontSize(): number {
+    if (this.currentBreakpoint === 'lg') return 14;
+    if (this.currentBreakpoint === 'md') return 13;
+    return 12;
+  }
+
+  private btnHeight(): number {
+    return this.currentBreakpoint === 'sm' ? 44 : 48;
+  }
+
   aboutToAppear(): void {
-    const context = getContext(this) as Context;
+    const context = this.getUIContext().getHostContext() as common.Context;
     this.loadData(context);
   }
 
-  private async loadData(context: Context): Promise<void> {
+  private async loadData(context: common.Context): Promise<void> {
     await this.historyManager.init(context);
     this.historyList = await this.historyManager.getHistory();
     this.isLoading = false;
@@ -42,8 +59,8 @@ export struct HistoryPage {
               .height(48)
               .color('#0A59F7')
             Text('加载中...')
-              .fontSize(14)
-              .fontColor('#999999')
+              .fontSize(this.metaFontSize())
+              .fontColor('#5F6368')
               .margin({ top: 12 })
           }
           .width('100%')
@@ -52,8 +69,8 @@ export struct HistoryPage {
         } else if (this.historyList.length === 0) {
           Column() {
             Text('暂无弹幕记录')
-              .fontSize(16)
-              .fontColor('#999999')
+              .fontSize(this.contentFontSize())
+              .fontColor('#5F6368')
           }
           .width('100%')
           .height('100%')
@@ -62,33 +79,38 @@ export struct HistoryPage {
           Column() {
             Row() {
               Text(`共 ${this.historyList.length} 条记录`)
-                .fontSize(13)
-                .fontColor('#999999')
+                .fontSize(this.metaFontSize())
+                .fontColor('#5F6368')
               Button('清空')
                 .fontSize(13)
-                .height(28)
-                .backgroundColor('#FF4444')
+                .height(this.btnHeight())
+                .backgroundColor('#F85149')
                 .fontColor('#FFFFFF')
                 .borderRadius(14)
+                .shadow({ radius: 8, color: 'rgba(248,81,73,0.3)', offsetX: 0, offsetY: 2 })
                 .onClick(() => { this.clearAll(); })
             }
             .width('100%')
             .justifyContent(FlexAlign.SpaceBetween)
             .padding({ left: 16, right: 16, top: 8, bottom: 8 })
 
-            List() {
+            GridRow({
+              columns: { sm: 1, md: 2, lg: 3 },
+              gutter: { x: 8, y: 8 },
+              breakpoints: { value: ['600vp', '840vp'] }
+            }) {
               ForEach(this.historyList, (item: HistoryItem, index?: number) => {
-                ListItem() {
+                GridCol({ span: { sm: 1, md: 1, lg: 1 } }) {
                   Row() {
                     Column() {
                       Text(item.content)
-                        .fontSize(15)
-                        .fontColor('#333333')
+                        .fontSize(this.contentFontSize())
+                        .fontColor('#1A1C1E')
                         .maxLines(2)
                         .textOverflow({ overflow: TextOverflow.Ellipsis })
                       Text(this.formatTime(item.timestamp))
-                        .fontSize(12)
-                        .fontColor('#999999')
+                        .fontSize(this.metaFontSize())
+                        .fontColor('#5F6368')
                         .margin({ top: 4 })
                     }
                     .alignItems(HorizontalAlign.Start)
@@ -103,14 +125,18 @@ export struct HistoryPage {
                   .width('100%')
                   .padding(16)
                   .backgroundColor(Color.White)
+                  .border({ width: 1, color: 'rgba(0,0,0,0.06)' })
                   .borderRadius(12)
                 }
-                .margin({ top: 8, left: 16, right: 16 })
+                .padding({ left: 8, right: 8 })
               }, (item: HistoryItem, index?: number) => `${item.timestamp}_${index}`)
             }
             .width('100%')
             .layoutWeight(1)
             .margin({ top: 4 })
+            .onBreakpointChange((breakpoint: string) => {
+              this.currentBreakpoint = breakpoint;
+            })
           }
           .width('100%')
           .height('100%')
@@ -118,7 +144,7 @@ export struct HistoryPage {
       }
       .width('100%')
       .height('100%')
-      .backgroundColor('#F1F3F5')
+      .backgroundColor('#E8EDF2')
     }
     .title('弹幕历史记录')
     .hideTitleBar(false)
